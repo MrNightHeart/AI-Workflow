@@ -1,0 +1,35 @@
+name: Trigger Codex agent
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  authorize-and-trigger:
+    # The label is an explicit maintainer opt-in. The author check is intentionally strict.
+    if: >-
+      github.event.issue.user.login == 'MrNightHeart' &&
+      contains(github.event.issue.labels.*.name, 'ai:implement')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger GitLab pipeline
+        env:
+          GITLAB_TRIGGER_TOKEN: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
+          GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+          GITLAB_REF: main
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test -n "$GITLAB_TRIGGER_TOKEN"
+          test -n "$GITLAB_PROJECT_ID"
+          curl --fail-with-body --request POST \
+            --form "token=$GITLAB_TRIGGER_TOKEN" \
+            --form "ref=$GITLAB_REF" \
+            --form "variables[ISSUE_NUMBER]=$ISSUE_NUMBER" \
+            --form "variables[REPOSITORY]=$REPOSITORY" \
+            "https://gitlab.com/api/v4/projects/${GITLAB_PROJECT_ID}/trigger/pipeline"

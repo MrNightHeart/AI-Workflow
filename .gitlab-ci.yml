@@ -1,0 +1,55 @@
+stages:
+  - implement
+
+codex-implement:
+  stage: implement
+  image: node:22-bookworm
+  resource_group: codex-agent
+  timeout: 30 minutes
+  rules:
+    - if: '$ISSUE_NUMBER && $REPOSITORY'
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq git curl jq
+    - npm install --global @openai/codex
+    - git config user.name "codex-agent"
+    - git config user.email "codex-agent@noreply.invalid"
+  script:
+    - test -n "$OPENAI_API_KEY"
+    - test -n "$GITHUB_TOKEN"
+    - test -n "$ISSUE_NUMBER"
+    - test -n "$REPOSITORY"
+    - git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git" repo
+    - cd repo
+    - git checkout main
+    - |
+      issue_json="$(curl --fail --silent --show-error \
+        -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github+json" \
+        "https://api.github.com/repos/${REPOSITORY}/issues/${ISSUE_NUMBER}")"
+      author="$(jq -r '.user.login' <<<"$issue_json")"
+      labels="$(jq -r '[.labels[].name] | join(",")' <<<"$issue_json")"
+      test "$author" = "MrNightHeart"
+      [[ ",$labels," == *,ai:implement,* ]]
+      jq -r '"# Issue \(.number): \(.title)\n\n\(.body // "")"' <<<"$issue_json" > ../issue.md
+    - export BRANCH="codex/issue-${ISSUE_NUMBER}"
+    - git checkout -b "$BRANCH"
+    - |
+      codex exec --full-auto "$(cat ../agent-prompt.md)
+
+Issue:
+$(cat ../issue.md)"
+    - git diff --exit-code && { echo "Codex made no changes"; exit 1; } || true
+    - git add -A
+    - git commit -m "Implement issue #${ISSUE_NUMBER}"
+    - git push --set-upstream origin "$BRANCH"
+    - |
+      gh pr create \
+        --repo "$REPOSITORY" \
+        --base main \
+        --head "$BRANCH" \
+        --title "Implement issue #${ISSUE_NUMBER}" \
+        --body "Automated implementation of #${ISSUE_NUMBER}. Please review carefully before merging."
+  variables:
+    GIT_STRATEGY: empty
+    GIT_DEPTH: "0"
