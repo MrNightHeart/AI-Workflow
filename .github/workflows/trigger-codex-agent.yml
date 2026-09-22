@@ -15,8 +15,6 @@ concurrency:
 
 jobs:
   implement:
-    # Explicit authorization: only the repository owner can request an agent run,
-    # and the ai:implement label is a deliberate opt-in.
     if: >-
       github.event.issue.user.login == 'MrNightHeart' &&
       contains(github.event.issue.labels.*.name, 'ai:implement')
@@ -40,6 +38,11 @@ jobs:
             printf '# Issue #%s: %s\n\n' "$ISSUE_NUMBER" "$ISSUE_TITLE"
             printf '%s\n' "${ISSUE_BODY:-}"
           } > .codex-issue.md
+          cp .github/codex/implement-issue.md .codex-prompt.md
+          {
+            printf '\n\n## Issue context\n'
+            cat .codex-issue.md
+          } >> .codex-prompt.md
 
       - name: Run Codex
         id: codex
@@ -48,7 +51,7 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":workspace"
           safety-strategy: drop-sudo
-          prompt-file: .github/codex/implement-issue.md
+          prompt-file: .codex-prompt.md
           output-file: .codex-final-message.md
 
       - name: Create pull request
@@ -63,9 +66,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          rm -f .codex-issue.md .codex-final-message.md
+          rm -f .codex-issue.md .codex-prompt.md .codex-final-message.md
           git add -A
           git commit -m "Implement issue #${ISSUE_NUMBER}"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
           git push --set-upstream origin "$branch"
           gh pr create \
             --repo "$REPOSITORY" \
