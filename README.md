@@ -1,20 +1,25 @@
 # AI-Workflow
 My visualisation how to use ai-agents in software-developer workflows of small teams.
 
+## Codex-Entwickler-Agent
+
+Der Entwickler-Agent kann GitHub-Issues mit der offiziellen OpenAI Codex Action umsetzen. Die Ausführung erfolgt geschützt in GitHub Actions; das Ergebnis ist ein Pull Request zur manuellen Prüfung.
+
+➡️ **[Codex-Agent einrichten](CODEX-AGENT.md)**
 
 ## Abgrenzung Begriff
--Skills
--Tools
--Wissensbasis
--Agent
+- Skills
+- Tools
+- Wissensbasis
+- Agent
 
 ## AI Einsatzmöglichkeiten
 
--als Googleersatz (/)
--als Googleersatz mit Zugriff auf den Code (/)
--als Coding-Assistant, schreibt Code in Projekt (/)
--als Coding-Assistant mit Skills, plant - schreibt Code - testet Code - commitet - ... (/)
--als Agent, fester Bestandteil des Workflows - erledigt eigenständig Aufgaben einer definierte Rolle
+- als Googleersatz (/)
+- als Googleersatz mit Zugriff auf den Code (/)
+- als Coding-Assistant, schreibt Code in Projekt (/)
+- als Coding-Assistant mit Skills, plant - schreibt Code - testet Code - commitet - ... (/)
+- als Agent, fester Bestandteil des Workflows - erledigt eigenständig Aufgaben einer definierte Rolle
 
 ## Mögliche Umsetzungen
 
@@ -22,11 +27,10 @@ My visualisation how to use ai-agents in software-developer workflows of small t
 
 ## Mögliche Agents:
 
--Ticket-Refinement-Agent
--Architektur-/Impact-Agent
--PR-/Merge-Request-Agent
--Wissens-Agent
-
+- Ticket-Refinement-Agent
+- Architektur-/Impact-Agent
+- PR-/Merge-Request-Agent
+- Wissens-Agent
 
 ### Ticket-Refinement-Agent
 Vor dem IMP läuft ein Agent über neue Jira-Tickets.
@@ -84,10 +88,9 @@ Möglicherweise fehlt Testfall.
 
 Damit konzentrieren sich menschliche Reviewer auf die wichtigen Stellen.
 
-
 ### Wissens-Agent
 
-Über Jira, GitLab/GitHub, Confluence und Codebase.
+Über Jira, GitHub, Confluence und Codebase.
 
 Entwickler können fragen:
 
@@ -100,7 +103,7 @@ oder
 Der Agent durchsucht:
 
 Code
-MRs
+Pull Requests
 Jira
 Dokumentation
 
@@ -116,7 +119,7 @@ Implementierung erzeugen
 Tests erzeugen
 Branch anlegen
 Commit erstellen
-MR erstellen
+Pull Request erstellen
 
 Der Entwickler wird dann eher zum Reviewer.
 
