@@ -1,35 +1,75 @@
-name: Trigger Codex agent
+name: Implement issue with Codex
 
 on:
   issues:
     types: [opened, labeled]
 
 permissions:
-  contents: read
+  contents: write
   issues: read
+  pull-requests: write
+
+concurrency:
+  group: codex-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
 
 jobs:
-  authorize-and-trigger:
-    # The label is an explicit maintainer opt-in. The author check is intentionally strict.
+  implement:
+    # Explicit authorization: only the repository owner can request an agent run,
+    # and the ai:implement label is a deliberate opt-in.
     if: >-
       github.event.issue.user.login == 'MrNightHeart' &&
       contains(github.event.issue.labels.*.name, 'ai:implement')
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger GitLab pipeline
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare issue context
         env:
-          GITLAB_TRIGGER_TOKEN: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
-          GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
-          GITLAB_REF: main
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          {
+            printf '# Issue #%s: %s\n\n' "$ISSUE_NUMBER" "$ISSUE_TITLE"
+            printf '%s\n' "${ISSUE_BODY:-}"
+          } > .codex-issue.md
+
+      - name: Run Codex
+        id: codex
+        uses: openai/codex-action@86365089a1087b84bf71b304f8bdcb13b20e # v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          safety-strategy: drop-sudo
+          prompt-file: .github/codex/implement-issue.md
+          output-file: .codex-final-message.md
+
+      - name: Create pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          test -n "$GITLAB_TRIGGER_TOKEN"
-          test -n "$GITLAB_PROJECT_ID"
-          curl --fail-with-body --request POST \
-            --form "token=$GITLAB_TRIGGER_TOKEN" \
-            --form "ref=$GITLAB_REF" \
-            --form "variables[ISSUE_NUMBER]=$ISSUE_NUMBER" \
-            --form "variables[REPOSITORY]=$REPOSITORY" \
-            "https://gitlab.com/api/v4/projects/${GITLAB_PROJECT_ID}/trigger/pipeline"
+          test -n "$(git status --porcelain)"
+          branch="codex/issue-${ISSUE_NUMBER}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          rm -f .codex-issue.md .codex-final-message.md
+          git add -A
+          git commit -m "Implement issue #${ISSUE_NUMBER}"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --repo "$REPOSITORY" \
+            --base main \
+            --head "$branch" \
+            --title "Implement issue #${ISSUE_NUMBER}" \
+            --body "Automated implementation of #${ISSUE_NUMBER}. Please review the diff and CI results before merging."

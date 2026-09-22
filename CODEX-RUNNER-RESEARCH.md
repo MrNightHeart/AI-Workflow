@@ -1,30 +1,29 @@
-# Recherche: offizieller Codex Runner
+# Recherche: Codex Action statt eigener Runner-Logik
 
 ## Ergebnis
 
-Für diesen Anwendungsfall gibt es derzeit keinen offiziellen OpenAI- oder Codex-Runner als GitLab-CI-Integration, den man anstelle der Pipeline-Logik einfach konfigurieren könnte.
+Es gibt eine offizielle OpenAI GitHub Action: [`openai/codex-action`](https://github.com/openai/codex-action).
 
-Das offizielle Repository [`openai/codex`](https://github.com/openai/codex) stellt den **Codex CLI** bereit. Er läuft lokal oder in einer CI-Umgebung und kann dort über `codex exec` nicht-interaktiv aufgerufen werden. Das ist kein eigener GitLab Runner und keine GitLab-Integration.
+Sie installiert die Codex CLI, startet bei Verwendung eines API-Keys den Responses-API-Proxy und führt `codex exec` mit kontrollierten Berechtigungen aus. Sie ist **kein GitLab Runner**; sie läuft als GitHub-Action-Job auf einem GitHub-hosted Runner.
 
-Die Begriffe sind daher zu unterscheiden:
+Die zuvor vorbereitete GitLab-Variante war daher unnötig komplex. Für den gewünschten GitHub-Issue-Workflow ist die offizielle Action die passendere Lösung.
 
-- **GitLab Runner**: führt Jobs aus; wird von GitLab bereitgestellt.
-- **Codex CLI**: Coding-Agent, der innerhalb eines Jobs ausgeführt wird.
-- **Codex Web/Cloud**: gehosteter OpenAI-Dienst; nicht dasselbe wie ein selbst betriebener GitLab-Runner.
+## Aktuelle Architektur
 
-## Konsequenz für dieses Repository
+1. GitHub Issue wird erstellt oder erhält das Label `ai:implement`.
+2. Der Workflow akzeptiert ausschließlich Issues von `MrNightHeart`.
+3. `openai/codex-action` läuft mit `permission-profile: ":workspace"` und `safety-strategy: drop-sudo`.
+4. Die Änderungen werden in einen Branch gepusht und als Pull Request nach `main` eröffnet.
+5. `main` wird nicht direkt verändert.
 
-Die aktuelle Lösung verwendet bereits die kleinste sinnvolle Architektur:
+Die Action prüft zusätzlich standardmäßig, ob der auslösende Benutzer Schreibzugriff auf das Repository besitzt. Das ersetzt nicht die explizite Autor-/Label-Prüfung im Workflow.
 
-1. GitHub Actions autorisiert das Issue und triggert GitLab.
-2. Der vorhandene GitLab Runner startet die Codex CLI.
-3. Die CLI bearbeitet das Issue im Checkout.
-4. Der Job erstellt Branch und Pull Request.
+## Sicherheit
 
-Ein vermeintliches `codex-runner`-Paket würde aktuell keine offizielle, belastbare Vereinfachung darstellen. Drittanbieter-Templates oder Community-Repositories sollten nicht automatisch mit Zugriff auf `OPENAI_API_KEY` und Schreibrechten im Repository verwendet werden.
-
-## Sicherheitsentscheidung
-
-Der Agent bleibt absichtlich als normaler CI-Schritt modelliert. Dadurch sind Timeout, geschützter Runner, geschützte Variablen, `resource_group`, Netzwerkzugriff und GitHub-Token-Rechte explizit kontrollierbar. Das ist für einen produktiven ersten Aufbau transparenter als eine inoffizielle Wrapper-Action.
-
-Wenn OpenAI künftig eine offizielle GitLab-CI-Integration veröffentlicht, kann der Job-Installations- und Aufrufteil gezielt ersetzt werden; die Issue-Autorisierung und PR-Gates sollten trotzdem im eigenen Repository bleiben.
+- `OPENAI_API_KEY` wird als GitHub-Repository-Secret gespeichert.
+- Die Action ist im Workflow auf einen vollständigen Commit-SHA gepinnt; der lesbare Versionshinweis ist nur Dokumentation.
+- Der Key wird nur im Codex-Schritt verwendet.
+- `drop-sudo` und das Workspace-Berechtigungsprofil reduzieren den Zugriff des Agenten.
+- Issue-Texte bleiben eine Prompt-Injection-Grenze; sie dürfen keine Workflow-Sicherheitsregeln überschreiben.
+- Pull Requests werden nicht automatisch gemergt.
+- Für produktive Nutzung sollten `main`-Branch-Schutz, erforderliche Checks und eine manuelle Review aktiviert sein.
