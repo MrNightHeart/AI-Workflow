@@ -10,7 +10,7 @@ import io.ktor.server.routing.routing
 fun Application.module() {
     routing {
         get("/") {
-            call.respondText("Hello dear Agents")
+            call.respondText("Issue-Trigger einfach gemacht")
         }
     }
 }
