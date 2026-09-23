@@ -15,6 +15,6 @@ class ApplicationTest {
         val response = client.get("/")
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertEquals("Issue-Trigger einfach gemacht", response.bodyAsText())
+        assertEquals("issue trigger work", response.bodyAsText())
     }
 }
