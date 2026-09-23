@@ -8,7 +8,7 @@ Mein Demo-Projekt zum Thema Agents und agentische Workflows.
 - Als Google-Ersatz mit Zugriff auf den Code ✅
 - Als Coding-Assistant, der Code im Projekt schreibt ✅
 - Als Coding-Assistant mit Skills, der plant, Code schreibt, Tests ausführt, committet, … ✅
-- Als Agent, der fester Bestandteil des Workflows ist und eigenständig eine definierte Rolle erfüllt ✅
+- Als Agent, der fester Bestandteil des Workflows ist und eigenständig eine definierte Rolle erfüllt 🚧
 
 ## Mögliche Umsetzungen
 
