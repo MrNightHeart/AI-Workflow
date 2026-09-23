@@ -15,7 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PROJECT_TITLE: ''
+  PROJECT_OWNER: MrNightHeart
+  PROJECT_NUMBER: 2
   STATUS_FIELD: Status
   AI_FIELD: AI-Bearbeitung
   AI_APPROVED_OPTION: Freigegeben
@@ -29,21 +30,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          PROJECT_TITLE: ${{ env.PROJECT_TITLE }}
+          PROJECT_OWNER: ${{ env.PROJECT_OWNER }}
+          PROJECT_NUMBER: ${{ env.PROJECT_NUMBER }}
           STATUS_FIELD: ${{ env.STATUS_FIELD }}
           AI_FIELD: ${{ env.AI_FIELD }}
           AI_APPROVED_OPTION: ${{ env.AI_APPROVED_OPTION }}
         run: |
           set -euo pipefail
-          owner="${REPOSITORY%%/*}"
-          repo="${REPOSITORY#*/}"
-          query='query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){projectsV2(first:20){nodes{id title fields(first:50){nodes{... on ProjectV2SingleSelectField{id name options{id name}}}} items(first:100){nodes{id content{__typename ... on DraftIssue{id title body}} fieldValues(first:50){nodes{... on ProjectV2ItemFieldSingleSelectValue{name field{... on ProjectV2SingleSelectField{name}}}}}}}}}}}'
-          gh api graphql -f query="$query" -f owner="$owner" -f repo="$repo" > /tmp/projects.json
+          query='query($owner:String!,$number:Int!){user(login:$owner){projectV2(number:$number){id title fields(first:50){nodes{... on ProjectV2SingleSelectField{id name options{id name}}}} items(first:100){nodes{id content{__typename ... on DraftIssue{id title body}} fieldValues(first:50){nodes{... on ProjectV2ItemFieldSingleSelectValue{name field{... on ProjectV2SingleSelectField{name}}}}}}}}}}}'
+          gh api graphql -f query="$query" -f owner="$PROJECT_OWNER" -F number="$PROJECT_NUMBER" > /tmp/projects.json
 
           jq_filter='
             [
-              .data.repository.projectsV2.nodes[]
-              | select(($title == "") or .title == $title)
+              .data.user.projectV2
               | . as $project
               | ($project.fields.nodes[] | select(.name == $status_field)) as $status
               | ($project.fields.nodes[] | select(.name == $ai_field)) as $ai
@@ -58,7 +57,7 @@ jobs:
             ] | first // empty
           '
 
-          if jq -e --arg title "$PROJECT_TITLE" --arg status_field "$STATUS_FIELD" --arg ai_field "$AI_FIELD" --arg approved "$AI_APPROVED_OPTION" "$jq_filter" /tmp/projects.json > /tmp/board.json && test -s /tmp/board.json; then
+          if jq -e --arg status_field "$STATUS_FIELD" --arg ai_field "$AI_FIELD" --arg approved "$AI_APPROVED_OPTION" "$jq_filter" /tmp/projects.json > /tmp/board.json && test -s /tmp/board.json; then
             echo 'eligible=true' >> "$GITHUB_OUTPUT"
             cat /tmp/board.json
           else
