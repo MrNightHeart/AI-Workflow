@@ -1,0 +1,60 @@
+name: Diagnose Codex board ticket discovery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  repository-projects: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect Project 2 items
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          read -r -d '' query <<'GRAPHQL' || true
+          query($owner: String!, $number: Int!) {
+            user(login: $owner) {
+              projectV2(number: $number) {
+                id
+                title
+                fields(first: 50) {
+                  nodes {
+                    ... on ProjectV2SingleSelectField {
+                      id
+                      name
+                      options { id name }
+                    }
+                  }
+                }
+                items(first: 100) {
+                  nodes {
+                    id
+                    content {
+                      __typename
+                      ... on DraftIssue { id title body }
+                      ... on Issue { number title repository { nameWithOwner } }
+                      ... on PullRequest { number title repository { nameWithOwner } }
+                    }
+                    fieldValues(first: 50) {
+                      nodes {
+                        ... on ProjectV2ItemFieldSingleSelectValue {
+                          name
+                          optionId
+                          field {
+                            ... on ProjectV2SingleSelectField { id name }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          GRAPHQL
+          gh api graphql -f query="$query" -f owner=MrNightHeart -F number=2 > /tmp/project.json
+          jq '{project: .data.user.projectV2.title, fields: [.data.user.projectV2.fields.nodes[] | {id,name,options}], items: [.data.user.projectV2.items.nodes[] | {id,content,fieldValues: [.fieldValues.nodes[] | select(.name != null) | {name,optionId,field: .field}]}]}' /tmp/project.json
