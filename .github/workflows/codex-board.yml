@@ -1,73 +1,78 @@
-name: Implement backlog issue with Codex
+name: Implement approved board ticket with Codex
 
 on:
-  issues:
-    types: [opened, labeled]
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
-  issues: write
   pull-requests: write
   repository-projects: write
 
 concurrency:
-  group: codex-board-issue-${{ github.event.issue.number }}
+  group: codex-board-ticket
   cancel-in-progress: false
 
 env:
-  AI_LABEL: ai:implement
-  # Set this when the repository contains more than one Projects v2 board.
   PROJECT_TITLE: ''
+  STATUS_FIELD: Status
+  AI_FIELD: AI-Bearbeitung
+  AI_APPROVED_OPTION: Freigegeben
 
 jobs:
   implement:
-    if: >-
-      github.event.issue.user.login == 'MrNightHeart' &&
-      contains(github.event.issue.labels.*.name, 'ai:implement')
     runs-on: ubuntu-latest
     steps:
-      - name: Locate issue in Backlog on the repository project board
+      - name: Find an approved draft ticket in Backlog
         id: board
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
           REPOSITORY: ${{ github.repository }}
           PROJECT_TITLE: ${{ env.PROJECT_TITLE }}
+          STATUS_FIELD: ${{ env.STATUS_FIELD }}
+          AI_FIELD: ${{ env.AI_FIELD }}
+          AI_APPROVED_OPTION: ${{ env.AI_APPROVED_OPTION }}
         run: |
           set -euo pipefail
           owner="${REPOSITORY%%/*}"
           repo="${REPOSITORY#*/}"
-          query='query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){projectsV2(first:20){nodes{id title fields(first:30){nodes{... on ProjectV2SingleSelectField{id name options{id name}}}} items(first:100){nodes{id content{... on Issue{number repository{nameWithOwner}}} fieldValues(first:30){nodes{... on ProjectV2ItemFieldSingleSelectValue{name optionId field{name}}}}}}}}}}'
+          query='query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){projectsV2(first:20){nodes{id title fields(first:50){nodes{... on ProjectV2SingleSelectField{id name options{id name}}}} items(first:100){nodes{id content{__typename ... on DraftIssue{id title body}} fieldValues(first:50){nodes{... on ProjectV2ItemFieldSingleSelectValue{name field{name}}}}}}}}}}'
           gh api graphql -f query="$query" -f owner="$owner" -f repo="$repo" > /tmp/projects.json
-          if jq -e --arg title "$PROJECT_TITLE" --arg repo "$REPOSITORY" --argjson issue "$ISSUE_NUMBER" '
-            .data.repository.projectsV2.nodes[]
-            | select(($title == "") or .title == $title)
-            | . as $project
-            | ($project.fields.nodes[] | select(.name == "Status")) as $status
-            | ($project.items.nodes[] | select(.content.number == $issue and .content.repository.nameWithOwner == $repo)) as $item
-            | ($item.fieldValues.nodes[] | select(.field.name == "Status")) as $current
-            | select(($current.name // "") == "Backlog")
-            | {project_id:$project.id, item_id:$item.id, status_field_id:$status.id, options:$status.options}
+
+          if jq -e --arg title "$PROJECT_TITLE" --arg status_field "$STATUS_FIELD" --arg ai_field "$AI_FIELD" --arg approved "$AI_APPROVED_OPTION" '
+            first(
+              .data.repository.projectsV2.nodes[]
+              | select(($title == "") or .title == $title)
+              | . as $project
+              | ($project.fields.nodes[] | select(.name == $status_field)) as $status
+              | ($project.fields.nodes[] | select(.name == $ai_field)) as $ai
+              | ($project.items.nodes[]
+                | select(.content.__typename == "DraftIssue")
+                | . as $item
+                | ([ $item.fieldValues.nodes[] | select(.field.name == $status_field) | .name ][0] // "") as $current_status
+                | ([ $item.fieldValues.nodes[] | select(.field.name == $ai_field) | .name ][0] // "") as $ai_status
+                | select($current_status == "Backlog" and $ai_status == $approved)
+                | {project_id:$project.id,item_id:$item.id,status_field_id:$status.id,status_options:$status.options,content_id:$item.content.id,title:$item.content.title,body:($item.content.body // ""),project_title:$project.title}
+              )
           ' /tmp/projects.json > /tmp/board.json; then
             echo 'eligible=true' >> "$GITHUB_OUTPUT"
+            cat /tmp/board.json
           else
             echo 'eligible=false' >> "$GITHUB_OUTPUT"
-            echo 'Issue is not in Backlog or is not attached to a matching project; nothing to do.'
+            echo 'No approved draft ticket in Backlog found.'
           fi
 
-      - name: Move issue to In Arbeit and announce start
+      - name: Move ticket to In Arbeit
         if: steps.board.outputs.eligible == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          option_id=$(jq -r '.options[] | select(.name == "In Arbeit") | .id' /tmp/board.json)
+          option_id=$(jq -r '.status_options[] | select(.name == "In Arbeit") | .id' /tmp/board.json)
           test -n "$option_id" && test "$option_id" != "null"
           mutation='mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}'
           gh api graphql -f query="$mutation" -f project="$(jq -r .project_id /tmp/board.json)" -f item="$(jq -r .item_id /tmp/board.json)" -f field="$(jq -r .status_field_id /tmp/board.json)" -f option="$option_id" >/dev/null
-          gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body '🤖 Codex-Agent gestartet: Dieses Ticket wurde auf **In Arbeit** gesetzt.'
 
       - name: Checkout main
         if: steps.board.outputs.eligible == 'true'
@@ -77,26 +82,26 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Prepare issue context
+      - name: Prepare ticket context
         if: steps.board.outputs.eligible == 'true'
         env:
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
+          TICKET_TITLE: ${{ steps.board.outputs.title }}
         run: |
           set -euo pipefail
+          title=$(jq -r .title /tmp/board.json)
+          body=$(jq -r .body /tmp/board.json)
           {
-            printf '# Issue #%s: %s\n\n' "$ISSUE_NUMBER" "$ISSUE_TITLE"
-            printf '%s\n' "${ISSUE_BODY:-}"
-          } > .codex-issue.md
+            printf '# Board ticket: %s\n\n' "$title"
+            printf '%s\n' "$body"
+          } > .codex-ticket.md
           cp .github/codex/implement-issue.md .codex-prompt.md
           {
-            printf '\n\n## Issue context\n'
-            cat .codex-issue.md
+            printf '\n\n## Board ticket context\n'
+            cat .codex-ticket.md
+            printf '\n\nThis is a GitHub Project draft ticket, not a GitHub Issue. Do not expect an issue number or issue comments.\n'
           } >> .codex-prompt.md
 
       - name: Run Codex
-        id: codex
         if: steps.board.outputs.eligible == 'true'
         uses: openai/codex-action@v1
         with:
@@ -106,47 +111,62 @@ jobs:
           prompt-file: .codex-prompt.md
           output-file: .codex-final-message.md
 
-      - name: Create pull request
+      - name: Create feature branch and pull request
         id: pull_request
         if: steps.board.outputs.eligible == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           test -n "$(git status --porcelain)"
-          branch="codex/issue-${ISSUE_NUMBER}"
+          title=$(jq -r .title /tmp/board.json)
+          slug=$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-50)
+          branch="codex/ticket-${slug:-draft}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          rm -f .codex-issue.md .codex-prompt.md .codex-final-message.md
+          rm -f .codex-ticket.md .codex-prompt.md .codex-final-message.md
           git add -A
-          git commit -m "Implement issue #${ISSUE_NUMBER}"
+          git commit -m "Implement board ticket: $title"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
           git push --set-upstream origin "$branch"
-          pr_url=$(gh pr create --repo "$REPOSITORY" --base main --head "$branch" --title "Implement issue #${ISSUE_NUMBER}" --body "Automated implementation of #${ISSUE_NUMBER}. Please review the diff and CI results before merging.")
+          pr_url=$(gh pr create --repo "$REPOSITORY" --base main --head "$branch" --title "Implement: $title" --body "Automated implementation of the approved Project ticket **$title**. Please review the diff and CI results before merging.")
           printf 'url=%s\n' "$pr_url" >> "$GITHUB_OUTPUT"
 
-      - name: Move issue to Fertig and announce completion
+      - name: Move ticket to Fertig
         if: steps.board.outputs.eligible == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          REPOSITORY: ${{ github.repository }}
-          PR_URL: ${{ steps.pull_request.outputs.url }}
         run: |
           set -euo pipefail
-          option_id=$(jq -r '.options[] | select(.name == "Fertig") | .id' /tmp/board.json)
+          option_id=$(jq -r '.status_options[] | select(.name == "Fertig") | .id' /tmp/board.json)
           test -n "$option_id" && test "$option_id" != "null"
           mutation='mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}'
           gh api graphql -f query="$mutation" -f project="$(jq -r .project_id /tmp/board.json)" -f item="$(jq -r .item_id /tmp/board.json)" -f field="$(jq -r .status_field_id /tmp/board.json)" -f option="$option_id" >/dev/null
-          gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body "✅ Codex-Agent fertig. Das Ticket wurde auf **Fertig** gesetzt. Pull Request: $PR_URL"
 
-      - name: Announce failure
-        if: ${{ failure() && steps.board.outputs.eligible == 'true' }}
+      - name: Write workflow summary
+        if: steps.board.outputs.eligible == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          REPOSITORY: ${{ github.repository }}
-        run: gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body '⚠️ Codex-Agent konnte das Ticket nicht vollständig bearbeiten. Das Ticket bleibt auf **In Arbeit**; bitte den Workflow-Lauf prüfen.'
+          PR_URL: ${{ steps.pull_request.outputs.url }}
+        run: |
+          {
+            echo '## Codex-Agent'
+            echo
+            echo "Ticket: **$(jq -r .title /tmp/board.json)**"
+            echo
+            echo "Status: **Fertig**"
+            echo
+            echo "Pull Request: $PR_URL"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write failure summary
+        if: ${{ failure() && steps.board.outputs.eligible == 'true' }}
+        run: |
+          {
+            echo '## Codex-Agent fehlgeschlagen'
+            echo
+            echo "Ticket: **$(jq -r .title /tmp/board.json)**"
+            echo
+            echo 'Das Ticket bleibt auf **In Arbeit**. Bitte den Workflow-Lauf prüfen.'
+          } >> "$GITHUB_STEP_SUMMARY"
