@@ -1,47 +1,57 @@
 # AI-Workflow
-Mein Demo-Project zum Thema Agent und AGentic-Workflows
 
+Mein Demo-Projekt zum Thema Agents und agentische Workflows.
 
-## AI Einsatzmöglichkeiten
+## AI-Einsatzmöglichkeiten
 
-- als Googleersatz (/)
-- als Googleersatz mit Zugriff auf den Code (/)
-- als Coding-Assistant, schreibt Code in Projekt (/)
-- als Coding-Assistant mit Skills, plant - schreibt Code - testet Code - commitet - ... (/)
-- als Agent, fester Bestandteil des Workflows - erledigt eigenständig Aufgaben einer definierte Rolle (!)
+- Als Google-Ersatz ✅
+- Als Google-Ersatz mit Zugriff auf den Code ✅
+- Als Coding-Assistant, der Code im Projekt schreibt ✅
+- Als Coding-Assistant mit Skills, der plant, Code schreibt, Tests ausführt, committet, … ✅
+- Als Agent, der fester Bestandteil des Workflows ist und eigenständig eine definierte Rolle erfüllt ✅
 
 ## Mögliche Umsetzungen
 
 ### Einfacher Ansatz
-Workflow wird durch Issues gesteuert
 
-Issue -> Triggert Agent 1 -> Triggert Agent 2 ...
+Der Workflow wird durch Issues gesteuert:
 
-### Agent Workflow Tools
-Workflow wird durch externe Tools definiert
-n8n https://n8n.io/
-langGraph https://www.langchain.com/langgraph
+```text
+Issue → Agent 1 → Agent 2 → …
+```
 
-## Mögliche Agents:
+### Agent-Workflow-Tools
 
-- Entwickler-Agent
-    -Sub-Agents:
-      - Frontend-Angular-Agent
-      - Backend-Agent-Agent
-      - Libary-Agent
-      - Planer-Agent
-      - Infrastruktur-Agent
-- Ticket-Verbesserungs-Agent
-- Ticket-Vorschlag-Agent
-- Architektur-Agent
-- Tester-Agent
-- Doku und Wissens-Agent
-- Update-Agent
-- Refactoring-Agent
+Der Workflow wird durch externe Tools definiert:
+
+- [n8n](https://n8n.io/)
+- [LangGraph](https://www.langchain.com/langgraph)
+
+## Mögliche Agents
+
+- **Entwickler-Agent**
+  - **Sub-Agents:**
+    - Frontend-Angular-Agent
+    - Backend-Agent
+    - Library-Agent
+    - Planer-Agent
+    - Infrastruktur-Agent
+- **Ticket-Verbesserungs-Agent**
+- **Ticket-Vorschlag-Agent**
+- **Architektur-Agent**
+- **Tester-Agent**
+- **Dokumentations- und Wissens-Agent**
+- **Update-Agent**
+- **Refactoring-Agent**
 
 ## Codex-Entwickler-Agent
 
-Der Entwickler-Agent kann GitHub-Issues mit der offiziellen OpenAI Codex Action umsetzen. Die Ausführung erfolgt geschützt in GitHub Actions; das Ergebnis ist ein Pull Request zur manuellen Prüfung.
+Der Entwickler-Agent kann GitHub-Issues mit der offiziellen OpenAI-Codex-Action umsetzen. Die Ausführung erfolgt geschützt in GitHub Actions; das Ergebnis ist ein Pull Request zur manuellen Prüfung.
 
 ➡️ **[Codex-Agent einrichten](CODEX-AGENT.md)**
 
+## Automatisierung
+
+Die Maschine baut die Maschine,
+die Maschine baut die Maschine,
+die Maschine …
