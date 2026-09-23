@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           owner="${REPOSITORY%%/*}"
           repo="${REPOSITORY#*/}"
-          query='query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){projectsV2(first:20){nodes{id title fields(first:50){nodes{... on ProjectV2SingleSelectField{id name options{id name}}}} items(first:100){nodes{id content{__typename ... on DraftIssue{id title body}} fieldValues(first:50){nodes{... on ProjectV2ItemFieldSingleSelectValue{name field{name}}}}}}}}}}'
+          query='query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){projectsV2(first:20){nodes{id title fields(first:50){nodes{... on ProjectV2SingleSelectField{id name options{id name}}}} items(first:100){nodes{id content{__typename ... on DraftIssue{id title body}} fieldValues(first:50){nodes{... on ProjectV2ItemFieldSingleSelectValue{name field{... on ProjectV2SingleSelectField{name}}}}}}}}}}}'
           gh api graphql -f query="$query" -f owner="$owner" -f repo="$repo" > /tmp/projects.json
 
           if jq -e --arg title "$PROJECT_TITLE" --arg status_field "$STATUS_FIELD" --arg ai_field "$AI_FIELD" --arg approved "$AI_APPROVED_OPTION" '
@@ -84,8 +84,6 @@ jobs:
 
       - name: Prepare ticket context
         if: steps.board.outputs.eligible == 'true'
-        env:
-          TICKET_TITLE: ${{ steps.board.outputs.title }}
         run: |
           set -euo pipefail
           title=$(jq -r .title /tmp/board.json)
