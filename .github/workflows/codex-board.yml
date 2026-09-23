@@ -36,7 +36,50 @@ jobs:
           AI_APPROVED_OPTION: ${{ env.AI_APPROVED_OPTION }}
         run: |
           set -euo pipefail
-          query='query($owner:String!,$number:Int!){user(login:$owner){projectV2(number:$number){id title fields(first:50){nodes{... on ProjectV2SingleSelectField{id name options{id name}}}} items(first:100){nodes{id content{__typename ... on DraftIssue{id title body}} fieldValues(first:50){nodes{... on ProjectV2ItemFieldSingleSelectValue{name field{... on ProjectV2SingleSelectField{name}}}}}}}}}}}'
+          read -r -d '' query <<'GRAPHQL' || true
+          query($owner: String!, $number: Int!) {
+            user(login: $owner) {
+              projectV2(number: $number) {
+                id
+                title
+                fields(first: 50) {
+                  nodes {
+                    ... on ProjectV2SingleSelectField {
+                      id
+                      name
+                      options { id name }
+                    }
+                  }
+                }
+                items(first: 100) {
+                  nodes {
+                    id
+                    content {
+                      __typename
+                      ... on DraftIssue {
+                        id
+                        title
+                        body
+                      }
+                    }
+                    fieldValues(first: 50) {
+                      nodes {
+                        ... on ProjectV2ItemFieldSingleSelectValue {
+                          name
+                          field {
+                            ... on ProjectV2SingleSelectField {
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          GRAPHQL
           gh api graphql -f query="$query" -f owner="$PROJECT_OWNER" -F number="$PROJECT_NUMBER" > /tmp/projects.json
 
           jq_filter='
