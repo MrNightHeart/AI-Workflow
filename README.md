@@ -1,14 +1,36 @@
-# AI-Workflow
+# AgentTeam
 
-Mein Demo- und Referenzprojekt für Agents und ticketzentrierte agentische Workflows.
+Projekt zum iterativen Aufbau eines ticketzentrierten Agent-Teams für private Projekte.
 
 ## Vision
 
-Ziel ist ein Team spezialisierter Agents, das private Software-, Server- und Vereinsprojekte unterstützt. Issues bilden dabei die operative Wahrheit: Sie halten Anforderungen, Freigaben, Übergaben und Arbeitsschritte fest. GitHub-Repositories enthalten die langlebigen Ergebnisse wie Quellcode, Tests, Architektur- und Betriebsdokumentation.
+Ziel ist ein Team spezialisierter Agents, das private Software-, Server- und später Vereinsprojekte unterstützt. Issues bilden dabei die operative Wahrheit: Sie halten Anforderungen, Freigaben, Übergaben und Arbeitsschritte fest. GitHub-Repositories enthalten die langlebigen Ergebnisse wie Quellcode, Tests, Architektur- und Betriebsdokumentation.
 
 Agents handeln nicht als unkontrollierter Schwarm. Ein Orchestrator weist ihnen genehmigte Tickets nach festen Rollen, Zuständen und Sicherheitsregeln zu. Kritische Übergänge – insbesondere Umsetzung, Merge, Deployment, Migration und externe beziehungsweise fachlich relevante Aktionen – bleiben durch explizite menschliche Freigaben kontrolliert.
 
 ➡️ **[Architekturvision des Agent-Teams](docs/AGENT-TEAM-VISION.md)**
+
+## AgentTeam als eigenständiges Projekt
+
+Der Aufbau des Agent-Teams ist selbst ein Projekt und kein einmaliger Infrastrukturbaustein. Es besitzt eine eigene Vision, ein Backlog, Releases, Architekturentscheidungen und Qualitätsziele.
+
+Das AgentTeam-Projekt und das Serverprojekt werden zunächst gemeinsam und iterativ weiterentwickelt:
+
+```text
+Serverprojekt erzeugt reale Anforderungen
+                ↓
+AgentTeam unterstützt deren Bearbeitung
+                ↓
+Erfahrungen zeigen Lücken im Agent-Team
+                ↓
+AgentTeam wird gezielt erweitert
+                ↓
+Verbessertes AgentTeam unterstützt den nächsten Serverschritt
+```
+
+Das Serverprojekt ist damit der erste reale Anwendungsfall und zugleich die Lern- und Validierungsumgebung des AgentTeam-Projekts. Anforderungen und Ergebnisse bleiben trotzdem in getrennten Projektkontexten dokumentiert und werden über verknüpfte Tickets und Pull Requests verbunden.
+
+Das Vereinsprojekt wird bewusst zurückgestellt. Wegen der höheren Anforderungen an Privatsphäre, personenbezogene Daten und selbstgehostete Lösungen wird es erst aufgenommen, wenn die dafür notwendige sichere Infrastruktur verfügbar und der Agentenprozess ausreichend erprobt ist.
 
 ## AI-Einsatzmöglichkeiten
 
@@ -63,7 +85,7 @@ Der Workflow kann später durch externe Tools persistent orchestriert werden:
 - **Review-/Qualitäts-Agent:** prüft Akzeptanzkriterien, Tests, Dokumentation und Risiken unabhängig.
 - **Deployment-/Migrations-Agent:** rollt exakt freigegebene Artefakte in Wartungsfenstern aus.
 - **Inspection-/Wartungs-Agent:** sucht nach Fehlern und erstellt nachvollziehbare, deduplizierte Bugtickets.
-- **Vereins-Ausführungs-Agent:** bereitet genehmigte Verwaltungsabläufe vor und führt ausdrücklich freigegebene Schritte aus.
+- **Vereins-Ausführungs-Agent:** langfristige Rolle für datenschutzgerecht betriebene Vereinsprozesse.
 
 ## Codex-Entwickler-Agent
 
